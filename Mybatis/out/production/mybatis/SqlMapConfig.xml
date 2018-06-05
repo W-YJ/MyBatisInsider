@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE configuration
+        PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-config.dtd">
+<configuration>
+    <!--属性定义：加载一个.properties文件，可以在这个标签中设置属性值-->
+    <properties resource="db.properties"></properties>
+    <!--全局配置-->
+    <settings>
+        <!--延迟加载总开关-->
+        <setting name="lazyLoadingEnabled" value="true"/>
+        <!--设置按需加载-->
+        <setting name="aggressiveLazyLoading" value="false"/>
+        <!--开启二级缓存-->
+        <setting name="cacheEnabled" value="true"/>
+    </settings>
+
+    <!-- 定义别名 -->
+    <typeAliases>
+        <!-- 单个别名的定义
+        alias：别名 type：别名映射的类型-->
+        <typeAlias type="domain.User" alias="user"/>
+
+        <!-- 批量别名定义
+        需要指定包路径，自动扫描包下面的pojo，自动定义别名，别名默认为类名（首字母大小写都可以）-->
+        <package name="domain"/>
+    </typeAliases>
+
+    <!-- 和spring整合后，environments配置将废除 -->
+    <environments default="development">
+        <environment id="development">
+            <transactionManager type="JDBC"/>
+            <!-- 使用jdbc事务管理 -->
+            <!-- 数据库连接池 -->
+            <dataSource type="POOLED">
+                <!--<property name="driver" value="${jdbc.driver}"/>-->
+                <!--<property name="url" value="${jdbc.url}"/>-->
+                <!--<property name="username" value="${jdbc.username}"/>-->
+                <!--<property name="password" value="${jdbc.password"/>-->
+                <property name="driver" value="com.mysql.jdbc.Driver"/>
+                <property name="url" value="jdbc:mysql://localhost:3306/mybatis?characterEncoding=utf-8"/>
+                <property name="username" value="wyj"/>
+                <property name="password" value="universe"/>
+            </dataSource>
+        </environment>
+    </environments>
+    <!-- 加载mapper.xml -->
+    <mappers>
+        <!--<mapper resource="sqlmap/User.xml" />-->
+        <!--<mapper class="mapper.UserMapper"/>-->
+
+        <!-- <mapper resource="mapper/UserMapper.xml" />-->
+        <!-- <mapper class="mapper.UserMapper"/>-->
+        <package name="mapper"/>
+    </mappers>
+</configuration>

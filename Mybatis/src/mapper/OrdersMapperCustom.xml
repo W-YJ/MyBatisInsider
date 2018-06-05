@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mapper.OrdersMapperCustom">
+    <!--cache参数
+    flushInteval(刷新间隔):可以被设置为任意的正整数，而且它们代表一个合理的毫秒形式的时间段。
+    size(引用数目)：可以被设置为任意正整数，要记住你缓存的对象数目和你运行环境的可用资源数目。默认是1024。
+    readOnly(只读):属性可以被设置为true或false。只读的缓存会给所有调用者返回缓存返回缓存对象的相同实例。
+    因此这些对象不能被修改。这提供了很重要的性能优势。可读写的缓存会返回缓存对象的拷贝（通过序列化）。这会慢一些，
+    但是安全，因此默认是false。-->
+    <!--收回策略：
+    LRU - 最近最少使用的：移除最长时间不被使用的对象。
+    FIFO - 先进先出：按对象进入缓存的顺序来移除它们。
+    SOFT - 软引用：移除基于垃圾回收器状态和软引用规则的对象
+    WREAK - 弱引用：更积极地移除基于垃圾收集器状态和弱引用规则的对象-->
+    <!--使用场景：
+    1.查询频率高，变化频率低的数据。
+    2.访问多且用户对查询结果-->
+
+    <!--表明开启二级缓存-->
+    <cache eviction="FIFO" flushInterval="60000" size="512" readOnly="true"/>
+    <select id="findOrderUserList" resultType="orderCustom">
+        SELECT orders.*,user.username,user.sex FROM user,orders where orders.userId = user.id
+    </select>
+
+   <!--一对一查询resultMap-->
+    <resultMap id="ordersUserResultMap" type="orders">
+        <!--完成订单信息的映射配置-->
+        <!--id:订单关联用户查询的唯一标识-->
+        <id column="id" property="id"></id>
+        <result column="user_id" property="userId"></result>
+        <result column="number" property="number"></result>
+        <result column="createtime" property="createtime"></result>
+        <result column="note" property="note"></result>
+
+        <!--完成关联信息的映射
+        association:用于对关联信息映射到单个pojo中
+        property:要将关联信息映射到orders的哪个属性中
+        javaType:关联信息映射到orders的属性的类型时user的类型-->
+        <association property="user" javaType="user">
+            <!--id:关联信息的唯一标识
+            property:要映射到user的哪个属性中-->
+            <id column="user_id" property="id"/>
+            <!--result就是普通列的映射-->
+            <result column="username" property="username"/>
+            <result column="sex" property="sex"/>
+        </association>
+    </resultMap>
+    <!--对于变化频率较高的sql，需要禁用二级缓存-->
+    <select id="findOrderUserListResultMap" resultMap="ordersUserResultMap" useCache="false">
+        SELECT orders.*,user.username,user.sex FROM USER,orders where orders.user_id=user.id
+    </select>
+
+
+    <!--一对多，查询订单及订单明细-->
+    <resultMap id="orderAndOrderDetails" type="orders" extends="ordersUserResultMap">
+        <!--
+        1.映射订单信息和用户信息，这里使用继承ordersUserResultMap
+        2.映射订单明细信息
+        property:要将关联信息映射到orders到哪个属性中
+        ofType:集合中pojo中的类型
+        -->
+        <collection property="orderdetails" ofType="orderdetail">
+            <!--
+            id:关联信息的唯一标识
+            property:Orderdetail的属性名
+            -->
+            <id column="orderdetail_id" property="id" />
+            <result column="items_num" property="itemNum"/>
+            <result column="items_id" property="itemsId"/>
+        </collection>
+    </resultMap>
+
+    <!--
+    一对多查询使用resultMap完成
+    查询订单关联查询订单明细
+    -->
+    <select id="findOrderAndOrderDetails" resultMap="orderAndOrderDetails">
+        SELECT orders.*,user.username,user.sex,orderdetail.id orderdetail_id,orderdetail.items_num,orderdetail.items_id
+        FROM orders,user,orderdetail
+        WHERE orders.user_id = user.id AND orders.id = orderdetail.orders_id
+    </select>
+
+    <!--一对一查询延迟加载-->
+    <!--一对一延迟加载的配置-->
+    <resultMap id="orderCustomLazyLoading" type="orders">
+        <!--完成订单信息的映射配置-->
+        <!--id:订单关联用户查询的唯一标识-->
+        <id column="id" property="id"></id>
+        <result column="user_id" property="userId"></result>
+        <result column="number" property="number"></result>
+        <result column="createtime" property="createtime"></result>
+        <result column="note" property="note"></result>
+
+        <!--配置用户信息的延迟加载
+        select:延迟加载执行的sql所在的statement的id，如果不在同一个namespace需加namespace
+        sql:根据用户id查询用户信息
+        column:关联查询的列
+        property:将关联查询的用户信息设置到Order的哪个属性-->
+        <association property="user" select="mapper.UserMapper.findUserById" column="user_id">
+
+        </association>
+    </resultMap>
+
+    <!--开始只查询订单，对用户信息进行延迟加载-->
+    <select id="findOrderUserListLazyLoading" resultMap="orderCustomLazyLoading">
+        SELECT orders.* FROM orders
+    </select>
+</mapper>

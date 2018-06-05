@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 在mapper.xml文件中配置很多的sql语句，执行每个sql语句时，封装为MappedStatement对象
+mapper.xml以statement为单位管理sql语句
+-->
+<mapper namespace="mapper.UserMapper">
+    <!-- 根据id查询用户信息 -->
+    <!--
+        id:唯一标志一个statement
+        #{}:表示一个占位符，如果#{}中传入简单类型的参数，#{}中的名称随意
+        parameterType：输入参数的类型，通过#{}接收parameterType输入的参数
+        resultType：输出结果类型，不管返回的是多条还是单条，指定单条记录映射的pojo类型
+    -->
+    <select id="findUserById" parameterType="int" resultType="po.User">
+        SELECT * FROM USER WHERE id = #{id}
+    </select>
+
+    <!-- 根据用户名称查询用户信息，可能返回多条
+    ${}:表示sql的拼接，通过${}接收参数，将参数的内容不加任何修饰拼接在sql中-->
+    <!--
+    补充：#{}与${}区别：
+    #{}:
+    1.表示一个占位符，向占位符输入参数，mybatis自动进行java类型和jdbc类型的转换。
+    2.程序员不需要考虑参数的类型，比如：传入字符串，mybatis最终拼接好的sql就是参数两边加单引号。
+    3.#{}接收pojo(Plain Old Java Object Java数据对象)数据，可以使用OGNL(就是el表达式)解析出pojo的属性值。
+    ${}:
+    1.表示sql的拼接，通过${}接收参数，将参数的内容不加任何修饰拼接在sql中。
+    2.${}也可以接收pojo数据，可以使用OGNL解析出pojo的属性值。
+    3.缺点:不能防止sql注入。
+    -->
+    <select id="findUserByName" parameterType="java.lang.String" resultType="user">
+        select * from user where username like '%${value}'
+    </select>
+
+    <!-- 添加用户
+    parameterType：输入参数的类型，User对象包括 username，birthday，sex，address】
+    #{}接收pojo数据，可以使用OGNL解析出pojo的属性值
+    #{username}表示从parameterType中获取pojo的属性值
+    selectKey：用于进行主键返回，定义了获取主键的sql
+    order：设置selectKey中的sql执行的顺序，相对于insert语句来说
+    keyProperty：将主键值设置到哪个属性
+    resultType：select LAST_INSERT_ID()的结果 类型-->
+    <insert id="insertUser" parameterType="po.User">
+        <selectKey keyProperty="id" order="AFTER" resultType="int">
+            <!-- order属性表示该字段在执行insert语句后才执行，另外我们需要借助
+            LAST_INSERT_ID()函数-->
+            SELECT LAST_INSERT_ID()
+        </selectKey>
+        INSERT INTO USER VALUE (#{id},#{username},#{birthday},#{sex},#{address})
+    </insert>
+
+    <update id="updateUser" parameterType="po.User">
+        update user set username=#{username}, birtheday=#{birthday},sex=#{sex},address=#{address} where id=#{id}
+    </update>
+
+    <!-- 定义resultMap
+    id:mapper.xml中的唯一标识
+    type:最终要映射的pojo类型
+    -->
+    <resultMap id="userListResultMap" type="user">
+        <!--列名
+        id id_，username username_,birthday birthday_
+        id:要映射结果集的唯一标识，成为主键
+        column:结果集的列名
+        property:type指定的哪个属性中-->
+        <id column="id_" property="id"/>
+
+        <!-- result就是普通列映射配置-->
+        <result column="username_" property="username"/>
+        <result column="birthday_" property="birthday"/>
+
+    </resultMap>
+
+    <!--使用resultMap作结果映射
+    resultMap:如果引用的resultMap的位置和resultMap的定义在同一个mapper.xml,直接使用resultMap的id
+    如果不在同一个mapper.xml，要在resultMap的id前加namespace-->
+    <select id="findUserListResultMap" parameterType="userQueryVo" resultMap="userListResultMap">
+        select id id_,username username_,birthday birthday_ from user where username like '%${userCustom.username}'
+    </select>
+
+
+    <!--定义sql片段-->
+    <sql id="query_user_where">
+        <!--如果userQueryVo传入查询条件，再进行sql拼接-->
+        <!--test中userCustom.username表示从userQueryVo读取属性值-->
+        <if test="userCustom!=null">
+            <if test="userCustom.username!=null and userCustom.username!=''">
+                and username like '%${userCustom.username}%'
+            </if>
+
+            <if test="userCustom.sex!=null and userCustom.sex!=''">
+                and sex = #{userCustom.sex}
+            </if>
+            <!-- 还有很多的查询条件 -->
+            <!--根据id集合查询用户信息-->
+            <!--最终拼接的效果
+            select id,username,birthday from user where username like '%wyj%' and id in(1,2)
+            collection:集合的属性
+            open:开始循环要拼接的串
+            close:结束循环要拼接的串
+            id:每次循环到的对象
+            separator:每两次循环中间拼接的串-->
+            <foreach collection="ids" open="and id in(" close=")" item="id" separator=",">
+                #{id}
+            </foreach>
+
+        </if>
+    </sql>
+
+    <!--使用sql片段-->
+    <!-- 自定义查询条件查询用户信息-->
+    <!--parameterType:指定包装类型-->
+    <!-- %${userCustom.username}%:userCustom是userQueryVo中的属性，通过OGNL来获取属性的值-->
+    <select id="findUserList" parameterType="userQueryVo" resultType="user">
+        select id,username,birthday from user
+        <!-- where标签相当于where关键字，可以自动去除第一个and-->
+        <where>
+            <!-- 引用sql片段，如果sql片段和引用处不在同一个mapper.xml,
+            则必须在前面加上namespace -->
+            <include refid="query_user_where"></include>
+            <!-- 还有很多其他的查询条件 -->
+        </where>
+    </select>
+
+    <!-- 输出简单类型 功能：自定义查询条件，返回查询记录个数，通常用于实现分页-->
+    <select id="findUserCount" parameterType="userQueryVo" resultType="int">
+        select count(*) from user
+        <!-- where标签相当于where关键字，可以自动去除第一个and-->
+        <where>
+            <!-- 引用sql片段，如果sql片段和引用处不在同一个mapper.xml,
+           则必须在前面加上namespace -->
+            <include refid="query_user_where"></include>
+            <!-- 还有很多其他的查询条件 -->
+        </where>
+    </select>
+</mapper>
+
